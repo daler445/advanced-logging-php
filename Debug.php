@@ -2,12 +2,16 @@
 class Debug
 {
     private $pattern = "[{datetime}] [{level}] [{process}] [{thread}] - {log}\n";
-    private $patternInit = "[{datetime}] [{thread}] - {log}\n";
+    private $patternInit = "\n[{datetime}] [{thread}] - {log}\n";
     private $defaultFilePath = 'debug.log';
     private $filePath = '';
     private $initDateTime;
 
     private $output;
+
+    private $debugIsEnabled = true;
+    private $isRelativeTime = false;
+    private $printLogToScreen = false;
 
     public function __construct($initMessage = false) {
         $this->setInitDateTime();
@@ -25,6 +29,9 @@ class Debug
 
     public function log($message) {
         $this->addToOutputLog($this->prepareDataDetailed('info',$message));
+        if ($this->printLogToScreen === true) {
+            print($message);
+        }
     }
     public function outputLog() {
         $this->writeToFile($this->output);
@@ -33,9 +40,27 @@ class Debug
     public function setFilePath($path) {
         $this->filePath = $path;
     }
+    public function enableLog() {
+        $this->debugIsEnabled = true;
+    }
+    public function disableLog() {
+        $this->debugIsEnabled = false;
+    }
+    public function setRelativeTime() {
+        $this->isRelativeTime = true;
+    }
+    public function unsetRelativeTime() {
+        $this->isRelativeTime = false;
+    }
+    public function enablePrintLogToScreen() {
+        $this->printLogToScreen = true;
+    }
+    public function disablePrintLogToScreen() {
+        $this->printLogToScreen = false;
+    }
 
     private function setInitDateTime() {
-        $this->initDateTime = time();
+        $this->initDateTime = $this->getTimeInMilliseconds();
     }
     private function getDateTime() {
         return date('d/m/Y:H:i:s O');
@@ -46,21 +71,39 @@ class Debug
     private function getProcessId() {
         return (getmypid() !== false) ? getmygid() : null;
     }
+    private function getTimeInMilliseconds() {
+        $mt = explode(' ', microtime());
+        return ((int)$mt[1]) * 1000 + ((int)round($mt[0] * 1000));
+    }
     private function getRelativeDate() {
         if ($this->initDateTime !== null) {
-            $diff = time() - $this->initDateTime;
-            return $this->generateRelativeTimeString($diff);
+            return $this->generateRelativeTimeString($this->initDateTime, $this->getTimeInMilliseconds());
         }
         throw new DebugException('Cannot calculate relative time. Init date is not defined.');
     }
-    private function generateRelativeTimeString($diff) {
-        if ($diff < 1) {
-            return '0 seconds';
+    private function generateRelativeTimeString($time1, $time2) {
+        // get milliseconds
+        $time1_ms = substr($time1, -3);
+        $time2_ms = substr($time2, -3);
+
+        // get seconds
+        $time1 = substr($time1, 0, -3);
+        $time2 = substr($time2, 0, -3);
+
+        $diff = $time2 - $time1;
+        if ($diff < 0) {
+            $diff *= -1;
         }
 
         $seconds = $diff;
         if ($seconds <= 60) {
-            return "$seconds ago";
+            if($seconds === 0) {
+                return ($time2_ms - $time1_ms) . ' ms ago';
+            }
+            if ($seconds === 1) {
+                return '1 second ago';
+            }
+            return "$seconds seconds ago";
         }
 
         $minutes = round($diff / 60);
@@ -109,7 +152,7 @@ class Debug
         }
         return "$years years ago";
     }
-    private function prepareDataDetailed($level = '', $data = '', $timeAbs = true)
+    private function prepareDataDetailed($level = '', $data = '')
     {
         $temp = $this->pattern;
 
@@ -142,7 +185,7 @@ class Debug
         $temp = $this->replaceByKey($temp, '{thread}', $this->getThread());
         $temp = $this->replaceByKey($temp, '{process}', ($this->getProcessId() === null) ? '' : $this->getProcessId());
 
-        if ($timeAbs === true) {
+        if ($this->isRelativeTime === false) {
             $temp = $this->replaceByKey($temp, '{datetime}', $this->getDateTime());
         } else {
             try {
@@ -160,7 +203,9 @@ class Debug
         return $temp;
     }
     private function addToOutputLog($message) {
-        $this->output .= $message;
+        if ($this->debugIsEnabled) {
+            $this->output .= $message;
+        }
     }
     private function writeToFile($message){
         error_log($message,3,($this->filePath !== '' && $this->filePath !== null) ? $this->filePath : $this->defaultFilePath);
