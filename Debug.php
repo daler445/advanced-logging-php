@@ -3,15 +3,18 @@ class Debug
 {
     private $pattern = "[{datetime}] [{level}] [{process}] [{thread}] - {log}\n";
     private $patternInit = "\n[{datetime}] [{thread}] - {log}\n";
+    private $patternGroup = "[{level}] {log}\n";
+
     private $defaultFilePath = 'debug.log';
     private $filePath = '';
-    private $initDateTime;
 
+    private $initDateTime;
     private $output;
 
     private $debugIsEnabled = true;
     private $isRelativeTime = false;
     private $printLogToScreen = false;
+    private $groupLogging = false;
 
     public function __construct($initMessage = false) {
         $this->setInitDateTime();
@@ -27,8 +30,26 @@ class Debug
         }
     }
 
-    public function log($message) {
-        $this->addToOutputLog($this->prepareDataDetailed('info',$message));
+    public function log($message, $level = 'i') {
+        $this->addToOutputLog($this->prepareDataDetailed($level,$message));
+        if ($this->printLogToScreen === true) {
+            print($message);
+        }
+    }
+    public function error($message) {
+        $this->addToOutputLog($this->prepareDataDetailed('error', $message));
+        if ($this->printLogToScreen === true) {
+            print($message);
+        }
+    }
+    public function warn($message) {
+        $this->addToOutputLog($this->prepareDataDetailed('warn', $message));
+        if ($this->printLogToScreen === true) {
+            print($message);
+        }
+    }
+    public function notice($message) {
+        $this->addToOutputLog($this->prepareDataDetailed('notice', $message));
         if ($this->printLogToScreen === true) {
             print($message);
         }
@@ -40,18 +61,21 @@ class Debug
     public function setFilePath($path) {
         $this->filePath = $path;
     }
-    public function enableLog() {
+
+    public function enableWriteToLogFile() {
         $this->debugIsEnabled = true;
     }
-    public function disableLog() {
+    public function disableWriteToLogFile() {
         $this->debugIsEnabled = false;
     }
+
     public function setRelativeTime() {
         $this->isRelativeTime = true;
     }
     public function unsetRelativeTime() {
         $this->isRelativeTime = false;
     }
+
     public function enablePrintLogToScreen() {
         $this->printLogToScreen = true;
     }
@@ -59,27 +83,28 @@ class Debug
         $this->printLogToScreen = false;
     }
 
+    public function enableGroupLogging() {
+        $this->groupLogging = true;
+    }
+    public function disableGroupLogging() {
+        $this->groupLogging = false;
+    }
+
     private function setInitDateTime() {
         $this->initDateTime = $this->getTimeInMilliseconds();
-    }
-    private function getDateTime() {
-        return date('d/m/Y:H:i:s O');
-    }
-    private function getThread() {
-        return basename(__FILE__);
-    }
-    private function getProcessId() {
-        return (getmypid() !== false) ? getmygid() : null;
-    }
-    private function getTimeInMilliseconds() {
-        $mt = explode(' ', microtime());
-        return ((int)$mt[1]) * 1000 + ((int)round($mt[0] * 1000));
     }
     private function getRelativeDate() {
         if ($this->initDateTime !== null) {
             return $this->generateRelativeTimeString($this->initDateTime, $this->getTimeInMilliseconds());
         }
         throw new DebugException('Cannot calculate relative time. Init date is not defined.');
+    }
+    private function getDateTime() {
+        return date('d/m/Y:H:i:s O');
+    }
+    private function getTimeInMilliseconds() {
+        $mt = explode(' ', microtime());
+        return ((int)$mt[1]) * 1000 + ((int)round($mt[0] * 1000));
     }
     private function generateRelativeTimeString($time1, $time2) {
         // get milliseconds
@@ -152,15 +177,16 @@ class Debug
         }
         return "$years years ago";
     }
-    private function prepareDataDetailed($level = '', $data = '')
-    {
-        $temp = $this->pattern;
 
+    private function getThread() {
+        return basename(__FILE__);
+    }
+    private function getProcessId() {
+        return (getmypid() !== false) ? getmygid() : null;
+    }
+
+    private function prepareDataDetailed($level = 'i', $data = '') {
         switch (strtolower($level)) {
-            case 'd':
-            case 'debug':
-                $level = 'DEBUG';
-                break;
             case 'e':
             case 'error':
                 $level = 'ERROR';
@@ -180,28 +206,39 @@ class Debug
                 $level = 'INFO';
                 break;
         }
-        $temp = $this->replaceByKey($temp, '{level}', $level);
-        $temp = $this->replaceByKey($temp, '{log}', $data);
-        $temp = $this->replaceByKey($temp, '{thread}', $this->getThread());
-        $temp = $this->replaceByKey($temp, '{process}', ($this->getProcessId() === null) ? '' : $this->getProcessId());
 
-        if ($this->isRelativeTime === false) {
-            $temp = $this->replaceByKey($temp, '{datetime}', $this->getDateTime());
+        if ($this->groupLogging === true) {
+            $temp = $this->patternGroup;
+            $temp = $this->replaceByKey($temp, '{level}', $level);
+            $temp = $this->replaceByKey($temp, '{log}', $data);
         } else {
-            try {
-                $temp = $this->replaceByKey($temp, '{datetime}', $this->getRelativeDate());
-            } catch (DebugException $e) {
-                $this->setInitDateTime();
+            $temp = $this->pattern;
+            $temp = $this->replaceByKey($temp, '{level}', $level);
+            $temp = $this->replaceByKey($temp, '{log}', $data);
+            $temp = $this->replaceByKey($temp, '{thread}', $this->getThread());
+            $temp = $this->replaceByKey($temp, '{process}', ($this->getProcessId() === null) ? '' : $this->getProcessId());
+
+            if ($this->isRelativeTime === false) {
+                $temp = $this->replaceByKey($temp, '{datetime}', $this->getDateTime());
+            } else {
                 try {
                     $temp = $this->replaceByKey($temp, '{datetime}', $this->getRelativeDate());
                 } catch (DebugException $e) {
-                    $temp = $this->replaceByKey($temp, '{datetime}', '[Relative time error]');
+                    $this->setInitDateTime();
+                    try {
+                        $temp = $this->replaceByKey($temp, '{datetime}', $this->getRelativeDate());
+                    } catch (DebugException $e) {
+                        $temp = $this->replaceByKey($temp, '{datetime}', '[Relative time error]');
+                    }
                 }
             }
         }
-
         return $temp;
     }
+    private function replaceByKey($data, $key, $value) {
+        return str_replace($key, $value, $data);
+    }
+
     private function addToOutputLog($message) {
         if ($this->debugIsEnabled) {
             $this->output .= $message;
@@ -209,8 +246,5 @@ class Debug
     }
     private function writeToFile($message){
         error_log($message,3,($this->filePath !== '' && $this->filePath !== null) ? $this->filePath : $this->defaultFilePath);
-    }
-    private function replaceByKey($data, $key, $value) {
-        return str_replace($key, $value, $data);
     }
 }
