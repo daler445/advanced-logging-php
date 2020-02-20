@@ -1,6 +1,9 @@
 <?php
-class SDebug {
-    public static function log($message, $level, $file = null) {
+
+class SDebug
+{
+    public static function log($message, $level, $file = null)
+    {
         $log_data = (new self)->prepareDataDetailed($level, $message);
         if ($file === null) {
             (new self)->writeToFile($log_data);
@@ -8,7 +11,9 @@ class SDebug {
             (new self)->writeToFile($log_data, $file);
         }
     }
-    public static function notice($message, $file = null) {
+
+    public static function notice($message, $file = null)
+    {
         $log_data = (new self)->prepareDataDetailed('n', $message);
         if ($file === null) {
             (new self)->writeToFile($log_data);
@@ -16,7 +21,9 @@ class SDebug {
             (new self)->writeToFile($log_data, $file);
         }
     }
-    public static function warning($message, $file = null) {
+
+    public static function warning($message, $file = null)
+    {
         $log_data = (new self)->prepareDataDetailed('w', $message);
         if ($file === null) {
             (new self)->writeToFile($log_data);
@@ -24,7 +31,9 @@ class SDebug {
             (new self)->writeToFile($log_data, $file);
         }
     }
-    public static function info($message, $file = null) {
+
+    public static function info($message, $file = null)
+    {
         $log_data = (new self)->prepareDataDetailed('i', $message);
         if ($file === null) {
             (new self)->writeToFile($log_data);
@@ -32,7 +41,9 @@ class SDebug {
             (new self)->writeToFile($log_data, $file);
         }
     }
-    public static function error($message, $file = null) {
+
+    public static function error($message, $file = null)
+    {
         $log_data = (new self)->prepareDataDetailed('e', $message);
         if ($file === null) {
             (new self)->writeToFile($log_data);
@@ -40,7 +51,9 @@ class SDebug {
             (new self)->writeToFile($log_data, $file);
         }
     }
-    private function prepareDataDetailed($level = 'i', $data = '') {
+
+    private function prepareDataDetailed($level = 'i', $data = '')
+    {
         switch (strtolower($level)) {
             case 'e':
             case 'error':
@@ -65,9 +78,11 @@ class SDebug {
         $datetime = date('d/m/Y:H:i:s O');
         $referer = basename(__FILE__);
 
-        return "[$datetime] [$level] [$referer] – $data";
+        return "[$datetime] [$level] [$referer] – $data\n";
     }
-    private function writeToFile($message, $file = null) {
-        error_log($message,3, ($file !== null) ? $file : 'debug.log');
+
+    private function writeToFile($message, $file = null)
+    {
+        error_log($message, 3, ($file !== null) ? $file : 'debug.log');
     }
 }
