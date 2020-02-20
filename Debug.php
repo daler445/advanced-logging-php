@@ -7,6 +7,7 @@ class Debug
 
     private $defaultFilePath = 'debug.log';
     private $filePath = '';
+    private $useSystemLog = false;
 
     private $initDateTime;
     private $output;
@@ -88,6 +89,13 @@ class Debug
     }
     public function disableGroupLogging() {
         $this->groupLogging = false;
+    }
+
+    public function useSystemLog() {
+        $this->useSystemLog = true;
+    }
+    public function disuseSystemLog() {
+        $this->useSystemLog = false;
     }
 
     private function setInitDateTime() {
@@ -244,7 +252,11 @@ class Debug
             $this->output .= $message;
         }
     }
-    private function writeToFile($message){
-        error_log($message,3,($this->filePath !== '' && $this->filePath !== null) ? $this->filePath : $this->defaultFilePath);
+    protected function writeToFile($message){
+        if ($this->useSystemLog) {
+            error_log($message);
+        } else {
+            error_log($message,3,($this->filePath !== '' && $this->filePath !== null) ? $this->filePath : $this->defaultFilePath);
+        }
     }
 }
